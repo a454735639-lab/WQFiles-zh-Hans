@@ -1,0 +1,10 @@
+.orig/
+*.orig
+source/
+verify/
+*.ipa
+sha256.txt
+entitlements.txt
+__pycache__/
+*.pyc
+.DS_Store

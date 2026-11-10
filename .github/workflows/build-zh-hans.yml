@@ -1,0 +1,117 @@
+name: Build WQFiles zh-Hans IPA
+
+# 在 macOS runner 上用 Xcode 的 iPhoneOS SDK 编译并 ad-hoc 签名，
+# 产出可直接侧载的 WQFiles-zh-Hans.ipa。
+#
+# 触发方式：
+#   1) 自动：push 到 main 时构建
+#   2) 手动：Actions → Build WQFiles zh-Hans IPA → Run workflow
+#
+# 产物：Actions 运行页底部 Artifacts → WQFiles-zh-Hans-IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: '上游 WQFiles 源码 ref（tag / 分支 / commit）'
+        required: false
+        default: 'v0.7'
+  push:
+    branches: [main]
+    paths:
+      - 'zh-Hans.json'
+      - 'src/**'
+      - 'localize.py'
+      - 'postlocalize.py'
+      - 'check_zh.py'
+      - '.github/workflows/build-zh-hans.yml'
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout 汉化仓库
+        uses: actions/checkout@v4
+        with:
+          path: patch
+
+      - name: 拉取官方 WQFiles 源码
+        uses: actions/checkout@v4
+        with:
+          repository: kolbicz/WQFiles
+          ref: ${{ github.event.inputs.upstream_ref || 'v0.7' }}
+          path: source
+
+      - name: 显示上游版本
+        run: |
+          cd source
+          echo "== Info.plist =="
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' Info.plist
+          echo "== commit =="
+          git log -1 --format='%H %ad %s' --date=iso
+
+      - name: 套用简体中文译文
+        run: |
+          set -euo pipefail
+          cd source
+          python3 ../patch/localize.py --src . --catalog ../patch/zh-Hans.json --write
+          python3 ../patch/postlocalize.py --src .
+          python3 ../patch/check_zh.py --src .
+
+      - name: 设置中文显示名与区域
+        run: |
+          set -euo pipefail
+          cd source
+          /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName WQ 文件' Info.plist
+          /usr/libexec/PlistBuddy -c 'Delete :CFBundleDevelopmentRegion' Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c 'Add :CFBundleDevelopmentRegion string zh-Hans' Info.plist
+
+      - name: 编译 IPA
+        run: |
+          set -euo pipefail
+          cd source
+          chmod +x build.sh
+          WQFILES_FINAL_IPA="$GITHUB_WORKSPACE/WQFiles-zh-Hans.ipa" ./build.sh
+
+      - name: 校验产出的 IPA
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          unzip -l WQFiles-zh-Hans.ipa
+          rm -rf verify && mkdir verify
+          unzip -q WQFiles-zh-Hans.ipa -d verify
+          APP=verify/Payload/WQFiles.app
+
+          echo "== 包信息 =="
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist"
+
+          echo "== 签名 =="
+          codesign -dv --verbose=4 "$APP" 2>&1 | head -20
+          codesign --verify --deep --strict "$APP"
+
+          echo "== App Group 权限 =="
+          codesign -d --entitlements :- "$APP" 2>&1 | tee entitlements.txt
+          grep -q 'application-groups' entitlements.txt || { echo '缺少 App Group'; exit 1; }
+
+          echo "== 二进制内中文 =="
+          strings -a "$APP/WQFiles" | grep -c 'WQ 文件' || true
+
+          echo "== SHA-256 =="
+          shasum -a 256 WQFiles-zh-Hans.ipa | tee sha256.txt
+
+      - name: 上传 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: WQFiles-zh-Hans-IPA
+          path: |
+            WQFiles-zh-Hans.ipa
+            sha256.txt
+            verify/entitlements.txt
+          if-no-files-found: error
+          retention-days: 90
