@@ -28,7 +28,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 40
 
     steps:
@@ -43,6 +43,19 @@ jobs:
           repository: kolbicz/WQFiles
           ref: ${{ github.event.inputs.upstream_ref || 'v0.7' }}
           path: source
+
+      - name: 选择 Xcode（需要 iOS 26 SDK）
+        run: |
+          set -euo pipefail
+          # 上游用到 UIBarButtonItemStyleProminent 等 iOS 26 API，
+          # macos-15 的默认 Xcode 16 只有 iOS 18 SDK，会编译失败。
+          if [ -d /Applications/Xcode_26.6.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.6.app
+          elif [ -d /Applications/Xcode.app ]; then
+            sudo xcode-select -s /Applications/Xcode.app
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
 
       - name: 显示上游版本
         run: |
