@@ -28,6 +28,10 @@ RULES = [
     ('main.m',
      'if ([name isEqualToString:@"AppBackups"]) item.label = @"App Backups";',
      'if ([name isEqualToString:@"AppBackups"]) item.label = @"应用备份";'),
+    # 上游回归测试断言了界面文案，汉化后必须同步，否则 build.sh 的前置测试会失败
+    ('tests/WQAccessMutationTests.m',
+     'check([error containsString:@"Backup of the current file failed"], @"backup I/O failure reports a specific reason");',
+     'check([error containsString:@"备份当前文件失败"], @"backup I/O failure reports a specific reason");'),
 ]
 
 
