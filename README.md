@@ -6,6 +6,17 @@
 > **下载 IPA**：进 [Actions](../../actions/workflows/build-zh-hans.yml) → 选最新一次成功的运行
 > → 页面底部 **Artifacts** → `WQFiles-zh-Hans-IPA`。artifacts 保留 90 天。
 
+最新构建（#5，commit `eeed650`）：
+
+| 项 | 值 |
+|---|---|
+| 文件 | `WQFiles-zh-Hans.ipa` |
+| 大小 | 297,760 字节 |
+| SHA-256 | `d44ca5754802392615b775e2332f4f827a9d7a97ed8b4baec028f957cbd3d7cf` |
+| 版本 | 0.7 (build 26) |
+| 最低系统 | iOS 26.0 |
+| 编译环境 | macOS 26 runner · Xcode 26.6 · iOS 26 SDK |
+
 ## 这是什么
 
 WQ 文件是一个免越狱的 iOS 文件管理器：靠 worse_query 沙盒技术访问其他 App 的数据容器，
